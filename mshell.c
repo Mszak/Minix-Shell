@@ -24,17 +24,13 @@ void clean_stdin() {
 
 int find_end_of_line(char const * buffer, const int first_index, const int last_index) {
 	for (int index = first_index; index < last_index; ++index) {
-		if (buffer[index] == LINE_FEED) { // || == EOF
+		if (buffer[index] == LINE_FEED) {
 			return index;
 		}
 	}
 
 	return -1;
 }
-
-// int check_if_end_of_file(char last_character) {
-// 	return last_character == EOF;
-// }
 
 void prepare_line_buffer(char* target, char* source, int buffer_length) {
 	memcpy(target, source, sizeof(char) * buffer_length);
@@ -65,7 +61,6 @@ int read_command(int *was_eof, char* buffer, char* helper_buffer, int *current_b
 			}
 		}
 		else {
-			// *was_eof = check_if_end_of_file(helper_buffer[total_bytes_read - 1]);
 			*current_bytes_in_buffer = total_bytes_read - end_of_line - 1;
 			if (end_of_line > MAX_LINE_LENGTH) {
 				fprintf(stderr, "%s\n", SYNTAX_ERROR_STR);
