@@ -7,4 +7,11 @@
 #define EXEC_ERROR "exec error"
 #define PERMISSION_DENIED "permission denied"
 
+#define STDIN 0
+#define STDOUT 1
+#define STDERR 2
+
+#define true 1
+#define false 0
+
 #endif /* _CONSTANTS_H_ */
