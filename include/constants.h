@@ -6,6 +6,7 @@
 #define NO_SUCH_FILE_OR_DIR "no such file or directory"
 #define EXEC_ERROR "exec error"
 #define PERMISSION_DENIED "permission denied"
+#define BUILT_IN_COMMAND_ERROR = "Builtin %s error."
 
 #define STDIN 0
 #define STDOUT 1

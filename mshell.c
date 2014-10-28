@@ -7,6 +7,7 @@
 #include "siparse.h"
 #include "utils.h"
 #include "constants.h"
+#include "builtins.h"
 
 #include <unistd.h>
 #include <sys/wait.h>
@@ -109,6 +110,16 @@ void execute_command(const command* com) {
 
 	char* program = *(com->argv);
 	char **arguments = com->argv;
+
+	int shell_command_index = is_shell_command(program);
+	if (shell_command_index > -1) {
+		int return_code = execute_shell_command(shell_command_index, arguments);
+		if (return_code == BUILTIN_ERROR) {
+			fprintf(stderr, "Builtin %s error.\n", program);
+			fflush(stderr);
+		}
+		return;
+	}
 	
 	pid_t child_pid = fork();
 
