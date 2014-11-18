@@ -103,6 +103,30 @@ command* parse_command(char* buffer, const int bytes_read) {
 	}
 }
 
+void find_process_redirections(redirection * redirs[], redirection** in_redir, redirection** out_redir) {
+	for (int i = 0; redirs[i] != NULL; ++i) {
+		if (IS_RIN(redirs[i]->flags)) {
+			*in_redir = redirs[i];
+		}
+		if (IS_ROUT(redirs[i]->flags) || IS_RAPPEND(redirs[i]->flags)) {
+			*out_redir = redirs[i];
+		}
+	}	
+}
+
+void handle_open_file_error(const char* filename) {
+	char* error = EMPTY_STR;
+	if (errno == EACCES) {
+		error = PERMISSION_DENIED;
+	}
+	else if (errno == ENOENT) {
+		error = NO_SUCH_FILE_OR_DIR;
+	}
+
+	fprintf(stderr, "%s: %s\n", filename, error);
+	fflush(stderr);
+}
+
 void execute_command(const command* com) {
 	if (com == NULL || *(com->argv) == NULL) {
 		return;
@@ -110,6 +134,7 @@ void execute_command(const command* com) {
 
 	char* program = *(com->argv);
 	char **arguments = com->argv;
+	struct redirection **redirs = com->redirs;
 
 	int shell_command_index = is_shell_command(program);
 	if (shell_command_index > -1) {
@@ -127,6 +152,36 @@ void execute_command(const command* com) {
 		exit(EXEC_FAILURE);
 	}
 	else if (child_pid == 0) {
+		struct redirection *in_redir = NULL;
+		struct redirection *out_redir = NULL;
+		find_process_redirections(redirs, &in_redir, &out_redir);
+
+		if (in_redir != NULL) {
+			int in_fd = open(in_redir->filename, O_RDONLY);
+
+			if (in_fd == -1) {
+				handle_open_file_error(in_redir->filename);
+				exit(EXEC_FAILURE);
+			}
+			dup2(in_fd, STDIN);
+		}
+		if (out_redir != NULL) {
+			int out_flags = O_WRONLY | O_CREAT;
+			if (IS_RAPPEND(out_redir->flags)) {
+				out_flags |= O_APPEND;
+			}
+			else {
+				out_flags |= O_TRUNC;
+			}
+			int out_fd = open(out_redir->filename, out_flags, S_IRUSR | S_IWUSR);
+
+			if (out_fd == -1) {
+				handle_open_file_error(in_redir->filename);
+				exit(EXEC_FAILURE);
+			}
+			dup2(out_fd, STDOUT);
+		}
+
 		if (execvp(program, arguments) < 0) {
 			char* error_occured = NULL;
 			if (errno == EACCES || errno == EPERM) {

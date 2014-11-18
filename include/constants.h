@@ -7,6 +7,7 @@
 #define EXEC_ERROR "exec error"
 #define PERMISSION_DENIED "permission denied"
 #define BUILT_IN_COMMAND_ERROR = "Builtin %s error."
+#define EMPTY_STR ""
 
 #define STDIN 0
 #define STDOUT 1
