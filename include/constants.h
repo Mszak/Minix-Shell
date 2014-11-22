@@ -16,4 +16,6 @@
 #define true 1
 #define false 0
 
+#define MAX_FORKS_AMOUNT = 1000;
+
 #endif /* _CONSTANTS_H_ */

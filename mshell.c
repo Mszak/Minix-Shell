@@ -15,6 +15,9 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
+pid_t children_processes[MAX_LINE_LENGTH];
+int child_counter;
+
 void clean_stdin() {
 	char trash_input = -1;
 	int bytes_read = -1;
@@ -86,7 +89,7 @@ int read_command(int *was_eof, char* buffer, char* helper_buffer, int *current_b
 	}
 }
 
-command* parse_command(char* buffer, const int bytes_read) {
+line* parse_command(char* buffer, const int bytes_read) {
 	if (buffer == NULL || bytes_read == 0) {
 		return NULL;
 	}
@@ -98,8 +101,15 @@ command* parse_command(char* buffer, const int bytes_read) {
 		return NULL;
 	}
 	else {
-		command* command_to_execute = pickfirstcommand(parsed_lined);
-		return command_to_execute;
+		return parsed_lined;
+	}
+}
+
+void shutdown_pipe(int* fd) {
+	if (fd != NULL) {
+		close(fd[0]);
+		close(fd[1]);
+		free(fd);
 	}
 }
 
@@ -127,7 +137,20 @@ void handle_open_file_error(const char* filename) {
 	fflush(stderr);
 }
 
-void execute_command(const command* com) {
+void redirect_pipes(int* read_pipe, int* write_pipe) {
+	if (read_pipe != NULL) {
+		close(read_pipe[1]);
+		dup2(read_pipe[0], STDIN);
+		close(read_pipe[0]);
+	}
+	if (write_pipe != NULL) {
+		close(write_pipe[0]);
+		dup2(write_pipe[1], STDOUT);
+		close(write_pipe[1]);
+	}
+}
+
+void execute_command(const command* com, int* lfd, int* rfd) {
 	if (com == NULL || *(com->argv) == NULL) {
 		return;
 	}
@@ -152,6 +175,8 @@ void execute_command(const command* com) {
 		exit(EXEC_FAILURE);
 	}
 	else if (child_pid == 0) {
+		redirect_pipes(lfd, rfd);
+
 		struct redirection *in_redir = NULL;
 		struct redirection *out_redir = NULL;
 		find_process_redirections(redirs, &in_redir, &out_redir);
@@ -164,6 +189,7 @@ void execute_command(const command* com) {
 				exit(EXEC_FAILURE);
 			}
 			dup2(in_fd, STDIN);
+			close(in_fd);
 		}
 		if (out_redir != NULL) {
 			int out_flags = O_WRONLY | O_CREAT;
@@ -176,10 +202,11 @@ void execute_command(const command* com) {
 			int out_fd = open(out_redir->filename, out_flags, S_IRUSR | S_IWUSR);
 
 			if (out_fd == -1) {
-				handle_open_file_error(in_redir->filename);
+				handle_open_file_error(out_redir->filename);
 				exit(EXEC_FAILURE);
 			}
 			dup2(out_fd, STDOUT);
+			close(out_fd);
 		}
 
 		if (execvp(program, arguments) < 0) {
@@ -199,7 +226,55 @@ void execute_command(const command* com) {
 		}
 	}
 	else {
-		waitpid(child_pid, NULL, 0);
+		children_processes[child_counter++] = child_pid;
+	}
+}
+
+int is_pipeline_invalid(pipeline* p) {
+	for (command** c = *p + 1; *c; ++c) {
+		if ((*c)->argv[0] == NULL) {
+			return true;
+		}
+	}
+	return false;
+}
+
+void handle_pipeline(pipeline* p) {
+	if (is_pipeline_invalid(p)) {
+		fprintf(stderr, "%s\n", SYNTAX_ERROR_STR);
+		fflush(stderr);
+	}
+	else {
+		int* left = NULL;
+		int* right = NULL;
+		child_counter = 0;
+		for (command** c = *p; *c; ++c) {
+			shutdown_pipe(left);
+			left = right;
+			if (*(c+1) != NULL) {
+				right = (int*) malloc(2);
+				pipe(right);
+			}
+			else {
+				right = NULL;
+			}
+			execute_command(*c, left, right);
+		}
+		shutdown_pipe(left);
+
+		for (int i = 0; i < child_counter; ++i) {
+			waitpid(children_processes[i], NULL, 0);
+		}
+	}
+}
+
+void handle_pipeline_seq(line* ln) {
+	if (ln == NULL) {
+		return;
+	}
+
+	for (pipeline* p = ln->pipelines; *p; ++p) {
+		handle_pipeline(p);
 	}
 }
 
@@ -211,25 +286,25 @@ void write_prompt() {
 	}
 }
 
-void clean_buffers(command* com, int* was_eof) {
-	com = NULL;
+void clean_buffers(line* ln, int* was_eof) {
+	ln = NULL;
 	*was_eof = false;
 }
 
 int main(int argc, char *argv[]) {
 	char line_buffer[MAX_LINE_LENGTH * 2];
 	char read_helper_buffer[2 * MAX_LINE_LENGTH];
-	command* command_to_execute = NULL;
+	line* parsed_line = NULL;
 	int was_end_of_file = false;
 	int bytes_in_buffer = 0;
 
 	while(!was_end_of_file) {
-		clean_buffers(command_to_execute, &was_end_of_file);
+		clean_buffers(parsed_line, &was_end_of_file);
 		write_prompt();
 		int bytes_read = read_command(&was_end_of_file, line_buffer, 
 			read_helper_buffer, &bytes_in_buffer);
-		command_to_execute = parse_command(line_buffer, bytes_read);
-		execute_command(command_to_execute);
+		parsed_line = parse_command(line_buffer, bytes_read);
+		handle_pipeline_seq(parsed_line);
 	}
 
 	return 0;
