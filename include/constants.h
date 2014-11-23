@@ -8,6 +8,8 @@
 #define PERMISSION_DENIED "permission denied"
 #define BUILT_IN_COMMAND_ERROR = "Builtin %s error."
 #define EMPTY_STR ""
+#define TERMINATED "exited with status"
+#define KILLED "killed by signal"
 
 #define STDIN 0
 #define STDOUT 1

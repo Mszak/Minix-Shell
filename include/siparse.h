@@ -39,7 +39,7 @@ typedef struct line {
  * flags for parsed line
  */
 #define LINBACKGROUND 	1
-
+#define IS_BACKGROUND(x) ((x)&LINBACKGROUND) 
 
 /*
  * Parses given string containing sequence of pipelines separated by ';'. 
