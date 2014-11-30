@@ -80,6 +80,7 @@ int read_command() {
 			return 0;
 		}
 		else if (bytes_read == -1) {
+			bytes_read = 0;
 			continue;
 		}
 
