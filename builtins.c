@@ -8,13 +8,14 @@
 #include <signal.h>
 
 #include "builtins.h"
+#include "config.h"
 
 int echo(char*[]);
 int lexit(char*[]);
 int cd(char*[]);
 int ls(char*[]);
 int lkill(char*[]);
-int undefined(char *[]);
+int undefined(char*[]);
 
 builtin_pair builtins_table[]={
 	{"exit",	&lexit},
@@ -91,7 +92,6 @@ lkill(char * argv[]) {
 		return BUILTIN_ERROR;	
 	}
 
-	// printf("%d %d", pid, sig);
 	if (kill(pid, sig) == -1) {
 		return BUILTIN_ERROR;
 	}
@@ -107,7 +107,8 @@ lexit(char * argv[]) {
 void
 print_directory(struct dirent * entry) {
 	if (strncmp(entry->d_name, ".", 1) != 0) {
-		printf("%s\n", entry->d_name);		
+		fprintf(stdout, "%s\n", entry->d_name);
+		fflush(stdout);		
 	}
 }
 
@@ -151,7 +152,7 @@ int
 cd(char * argv[]) {
 	char* target_path = argv[1];
 	if (target_path == NULL) {
-		char* home_directory = getenv("HOME");
+		char* home_directory = getenv(HOME);
 		int return_code = chdir(home_directory);
 		if (return_code == -1) {
 			return BUILTIN_ERROR;

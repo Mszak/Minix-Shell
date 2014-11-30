@@ -51,4 +51,6 @@ typedef struct line {
  */
 line * parseline(char *);
 
+void execute_command(const command* com, int* lfd, int* rfd, int is_background);
+
 #endif /* !_SIPARSE_H_ */
